@@ -6,6 +6,7 @@ const sqlite3 = require("sqlite3").verbose();
 const bcrypt = require("bcrypt");
 const session = require("express-session");
 const path = require("path");
+const ExcelJS = require("exceljs"); // <-- ADICIONADO
 
 const app = express();
 
@@ -187,6 +188,45 @@ app.delete("/api/produtos/:id", checkAuth, (req, res) => {
       }
 
       res.json({ success: true });
+    }
+  );
+});
+
+
+// ===============================
+// EXPORTAR EXCEL (ADICIONADO)
+// ===============================
+app.get("/api/exportar", checkAuth, async (req, res) => {
+  const workbook = new ExcelJS.Workbook();
+  const sheet = workbook.addWorksheet("Inventario");
+
+  sheet.columns = [
+    { header: "Código", key: "codigo", width: 20 },
+    { header: "Descrição", key: "descricao", width: 40 },
+    { header: "Quantidade", key: "quantidade", width: 15 }
+  ];
+
+  db.all(
+    "SELECT codigo, descricao, quantidade FROM produtos WHERE user_id = ?",
+    [req.session.userId],
+    async (err, rows) => {
+      if (err) {
+        return res.status(500).json({ error: "Erro ao exportar" });
+      }
+
+      rows.forEach((row) => sheet.addRow(row));
+
+      res.setHeader(
+        "Content-Type",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+      );
+      res.setHeader(
+        "Content-Disposition",
+        'attachment; filename="inventario.xlsx"'
+      );
+
+      await workbook.xlsx.write(res);
+      res.end();
     }
   );
 });
