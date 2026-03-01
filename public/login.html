@@ -1,24 +1,105 @@
 <!DOCTYPE html>
-<html>
+<html lang="pt-BR">
 <head>
-  <title>Login</title>
+<meta charset="UTF-8">
+<title>Login - Contagem de Produtos</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+
+<style>
+body {
+    height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+    overflow: hidden;
+}
+
+/* Logo */
+.logo {
+    position: fixed;
+    top: 20px;
+    left: 20px;
+    height: 90px;
+    animation: fadeIn 1.2s ease-in-out;
+}
+
+/* Card */
+.card-login {
+    width: 100%;
+    max-width: 400px;
+    border-radius: 15px;
+    opacity: 0;
+    transform: translateY(30px);
+    animation: slideFade 0.8s ease forwards;
+}
+
+/* Inputs */
+.form-control {
+    transition: all 0.3s ease;
+}
+
+.form-control:focus {
+    box-shadow: 0 0 10px rgba(13,110,253,0.4);
+    transform: scale(1.02);
+}
+
+/* Botão */
+.btn-primary {
+    transition: all 0.3s ease;
+}
+
+.btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(13,110,253,0.4);
+}
+
+/* Animações */
+@keyframes slideFade {
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+</style>
 </head>
+
 <body>
 
-  <h2>Login</h2>
+<img src="/logo.png" class="logo">
 
-  <form action="/login" method="POST">
-    <input type="text" name="username" placeholder="Usuário" required />
-    <br><br>
+<div class="card shadow p-4 card-login">
 
-    <input type="password" name="password" placeholder="Senha" required />
-    <br><br>
+<h3 class="text-center mb-4"> Acesso ao Sistema</h3>
 
-    <button type="submit">Entrar</button>
-  </form>
+<form method="POST" action="/login">
+    
+    <div class="mb-3">
+        <label class="form-label">Usuário</label>
+        <input type="text" name="username" class="form-control" required>
+    </div>
 
-  <br>
-  <a href="/register.html">Criar conta</a>
+    <div class="mb-3">
+        <label class="form-label">Senha</label>
+        <input type="password" name="password" class="form-control" required>
+    </div>
+
+    <button type="submit" class="btn btn-primary w-100">
+        Entrar
+    </button>
+
+</form>
+
+<div class="text-center mt-3">
+    <small>Não tem conta? <a href="/register.html">Cadastrar</a></small>
+</div>
+
+</div>
 
 </body>
 </html>
