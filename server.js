@@ -1,0 +1,212 @@
+// ===============================
+// IMPORTAÇÕES
+// ===============================
+const express = require("express");
+const sqlite3 = require("sqlite3").verbose();
+const bcrypt = require("bcrypt");
+const session = require("express-session");
+const path = require("path");
+
+const app = express();
+
+
+// ===============================
+// MIDDLEWARES
+// ===============================
+app.use(express.urlencoded({ extended: true }));
+app.use(express.json());
+
+app.use(session({
+  secret: "segredo_super_secreto",
+  resave: false,
+  saveUninitialized: false
+}));
+
+app.use(express.static("public"));
+
+
+// ===============================
+// BANCO DE DADOS
+// ===============================
+const db = new sqlite3.Database("./database.db");
+
+db.serialize(() => {
+
+  // TABELA USUÁRIOS
+  db.run(`
+    CREATE TABLE IF NOT EXISTS users (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      username TEXT UNIQUE,
+      password TEXT
+    )
+  `);
+
+  // TABELA PRODUTOS
+  db.run(`
+    CREATE TABLE IF NOT EXISTS produtos (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      codigo TEXT,
+      descricao TEXT,
+      quantidade INTEGER,
+      user_id INTEGER
+    )
+  `);
+
+});
+
+
+// ===============================
+// PROTEÇÃO
+// ===============================
+function checkAuth(req, res, next) {
+  if (!req.session.userId) {
+    return res.status(401).json({ error: "Não autorizado" });
+  }
+  next();
+}
+
+
+// ===============================
+// CADASTRO
+// ===============================
+app.post("/register", async (req, res) => {
+  const { username, password } = req.body;
+
+  if (!username || !password) {
+    return res.send("Preencha todos os campos");
+  }
+
+  const hashedPassword = await bcrypt.hash(password, 10);
+
+  db.run(
+    "INSERT INTO users (username, password) VALUES (?, ?)",
+    [username, hashedPassword],
+    function (err) {
+      if (err) {
+        return res.send("Usuário já existe");
+      }
+      res.redirect("/login.html");
+    }
+  );
+});
+
+
+// ===============================
+// LOGIN
+// ===============================
+app.post("/login", (req, res) => {
+  const { username, password } = req.body;
+
+  db.get(
+    "SELECT * FROM users WHERE username = ?",
+    [username],
+    async (err, user) => {
+
+      if (!user) {
+        return res.send("Usuário não encontrado");
+      }
+
+      const valid = await bcrypt.compare(password, user.password);
+
+      if (!valid) {
+        return res.send("Senha incorreta");
+      }
+
+      req.session.userId = user.id;
+      res.redirect("/");
+    }
+  );
+});
+
+
+// ===============================
+// ROTA PRINCIPAL
+// ===============================
+app.get("/", (req, res) => {
+  if (!req.session.userId) {
+    return res.redirect("/login.html");
+  }
+  res.sendFile(path.join(__dirname, "public", "index.html"));
+});
+
+
+// ===============================
+// API PRODUTOS
+// ===============================
+
+// LISTAR
+app.get("/api/produtos", checkAuth, (req, res) => {
+  db.all(
+    "SELECT * FROM produtos WHERE user_id = ?",
+    [req.session.userId],
+    (err, rows) => {
+      if (err) {
+        return res.status(500).json({ error: "Erro ao buscar produtos" });
+      }
+      res.json(rows);
+    }
+  );
+});
+
+// CADASTRAR
+app.post("/api/produtos", checkAuth, (req, res) => {
+  const { codigo, descricao, quantidade } = req.body;
+
+  if (!codigo || !descricao || !quantidade) {
+    return res.status(400).json({ error: "Preencha todos os campos" });
+  }
+
+  db.run(
+    "INSERT INTO produtos (codigo, descricao, quantidade, user_id) VALUES (?, ?, ?, ?)",
+    [codigo, descricao, quantidade, req.session.userId],
+    function (err) {
+      if (err) {
+        return res.status(500).json({ error: "Erro ao cadastrar produto" });
+      }
+
+      res.json({
+        id: this.lastID,
+        codigo,
+        descricao,
+        quantidade
+      });
+    }
+  );
+});
+
+// EXCLUIR
+app.delete("/api/produtos/:id", checkAuth, (req, res) => {
+  const { id } = req.params;
+
+  db.run(
+    "DELETE FROM produtos WHERE id = ? AND user_id = ?",
+    [id, req.session.userId],
+    function (err) {
+      if (err) {
+        return res.status(500).json({ error: "Erro ao excluir" });
+      }
+
+      res.json({ success: true });
+    }
+  );
+});
+
+
+// ===============================
+// LOGOUT
+// ===============================
+app.get("/logout", (req, res) => {
+  req.session.destroy(() => {
+    res.redirect("/login.html");
+  });
+});
+
+
+// ===============================
+// INICIAR SERVIDOR
+// ===============================
+const PORT = process.env.PORT || 3000;
+
+app.listen(PORT, () => {
+  console.log("Servidor rodando na porta " + PORT);
+});
