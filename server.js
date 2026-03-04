@@ -10,21 +10,21 @@ const ExcelJS = require("exceljs"); // <-- ADICIONADO
 
 const app = express();
 
-
 // ===============================
 // MIDDLEWARES
 // ===============================
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 
-app.use(session({
-  secret: "segredo_super_secreto",
-  resave: false,
-  saveUninitialized: false
-}));
+app.use(
+  session({
+    secret: "segredo_super_secreto",
+    resave: false,
+    saveUninitialized: false,
+  })
+);
 
 app.use(express.static("public"));
-
 
 // ===============================
 // BANCO DE DADOS
@@ -32,16 +32,14 @@ app.use(express.static("public"));
 const db = new sqlite3.Database("./database.db");
 
 db.serialize(() => {
-
   // TABELA BASE (importada da planilha)
-db.run(`
-  CREATE TABLE IF NOT EXISTS base_produtos (
-    codigo TEXT PRIMARY KEY,
-    descricao TEXT
-  )
-`);
-  
-  
+  db.run(`
+    CREATE TABLE IF NOT EXISTS base_produtos (
+      codigo TEXT PRIMARY KEY,
+      descricao TEXT
+    )
+  `);
+
   // TABELA USUÁRIOS
   db.run(`
     CREATE TABLE IF NOT EXISTS users (
@@ -58,12 +56,11 @@ db.run(`
       codigo TEXT,
       descricao TEXT,
       quantidade INTEGER,
-      user_id INTEGER
+      user_id INTEGER,
+      created_at TEXT DEFAULT (datetime('now'))
     )
   `);
-
-});
-
+}); // ✅ FECHAMENTO QUE ESTAVA FALTANDO
 
 // ===============================
 // PROTEÇÃO
@@ -74,7 +71,6 @@ function checkAuth(req, res, next) {
   }
   next();
 }
-
 
 // ===============================
 // CADASTRO
@@ -100,7 +96,6 @@ app.post("/register", async (req, res) => {
   );
 });
 
-
 // ===============================
 // LOGIN
 // ===============================
@@ -111,7 +106,6 @@ app.post("/login", (req, res) => {
     "SELECT * FROM users WHERE username = ?",
     [username],
     async (err, user) => {
-
       if (!user) {
         return res.send("Usuário não encontrado");
       }
@@ -128,7 +122,6 @@ app.post("/login", (req, res) => {
   );
 });
 
-
 // ===============================
 // ROTA PRINCIPAL
 // ===============================
@@ -138,7 +131,6 @@ app.get("/", (req, res) => {
   }
   res.sendFile(path.join(__dirname, "public", "index.html"));
 });
-
 
 // ===============================
 // API PRODUTOS
@@ -178,7 +170,7 @@ app.post("/api/produtos", checkAuth, (req, res) => {
         id: this.lastID,
         codigo,
         descricao,
-        quantidade
+        quantidade,
       });
     }
   );
@@ -201,9 +193,8 @@ app.delete("/api/produtos/:id", checkAuth, (req, res) => {
   );
 });
 
-
 // ===============================
-// EXPORTAR EXCEL (ADICIONADO)
+// EXPORTAR EXCEL
 // ===============================
 app.get("/api/exportar", checkAuth, async (req, res) => {
   const workbook = new ExcelJS.Workbook();
@@ -212,7 +203,7 @@ app.get("/api/exportar", checkAuth, async (req, res) => {
   sheet.columns = [
     { header: "Código", key: "codigo", width: 20 },
     { header: "Descrição", key: "descricao", width: 40 },
-    { header: "Quantidade", key: "quantidade", width: 15 }
+    { header: "Quantidade", key: "quantidade", width: 15 },
   ];
 
   db.all(
@@ -240,7 +231,9 @@ app.get("/api/exportar", checkAuth, async (req, res) => {
   );
 });
 
-// BUSCAR DESCRIÇÃO PELO CÓDIGO
+// ===============================
+// BUSCAR DESCRIÇÃO PELO CÓDIGO (BASE)
+// ===============================
 app.get("/api/buscar/:codigo", checkAuth, (req, res) => {
   const codigo = req.params.codigo;
 
@@ -257,6 +250,74 @@ app.get("/api/buscar/:codigo", checkAuth, (req, res) => {
 });
 
 // ===============================
+// ANALISE DE DADOS (DASHBOARD)
+// ===============================
+
+// Resumo geral
+app.get("/api/analytics/resumo", checkAuth, (req, res) => {
+  const userId = req.session.userId;
+
+  db.get(
+    `
+    SELECT 
+      COUNT(*) AS total_produtos,
+      COALESCE(SUM(quantidade), 0) AS total_unidades
+    FROM produtos
+    WHERE user_id = ?
+    `,
+    [userId],
+    (err, row) => {
+      if (err) return res.status(500).json({ error: "Erro no resumo" });
+      res.json(row);
+    }
+  );
+});
+
+// Top 10 por quantidade
+app.get("/api/analytics/top10", checkAuth, (req, res) => {
+  const userId = req.session.userId;
+
+  db.all(
+    `
+    SELECT codigo, descricao, SUM(quantidade) AS total
+    FROM produtos
+    WHERE user_id = ?
+    GROUP BY codigo, descricao
+    ORDER BY total DESC
+    LIMIT 10
+    `,
+    [userId],
+    (err, rows) => {
+      if (err) return res.status(500).json({ error: "Erro no top10" });
+      res.json(rows);
+    }
+  );
+});
+
+// Últimos 7 dias (quantidade cadastrada por dia)
+app.get("/api/analytics/7dias", checkAuth, (req, res) => {
+  const userId = req.session.userId;
+
+  db.all(
+    `
+    SELECT 
+      date(created_at) AS dia,
+      COALESCE(SUM(quantidade), 0) AS total
+    FROM produtos
+    WHERE user_id = ?
+      AND created_at >= datetime('now', '-6 days')
+    GROUP BY date(created_at)
+    ORDER BY dia ASC
+    `,
+    [userId],
+    (err, rows) => {
+      if (err) return res.status(500).json({ error: "Erro no 7dias" });
+      res.json(rows);
+    }
+  );
+});
+
+// ===============================
 // LOGOUT
 // ===============================
 app.get("/logout", (req, res) => {
@@ -264,7 +325,6 @@ app.get("/logout", (req, res) => {
     res.redirect("/login.html");
   });
 });
-
 
 // ===============================
 // INICIAR SERVIDOR
