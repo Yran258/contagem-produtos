@@ -78,6 +78,32 @@ Cadastrar
 </div>
 
 <script>
+  
+  document.getElementById("codigo").addEventListener("keydown", async (e) => {
+  if (e.key === "Enter") {
+    e.preventDefault();
+
+    const codigo = document.getElementById("codigo").value.trim();
+    if (!codigo) return;
+
+    const res = await fetch("/api/buscar/" + encodeURIComponent(codigo));
+    if (res.status === 401) {
+      window.location.href = "/login.html";
+      return;
+    }
+
+    const data = await res.json();
+    if (data.encontrado) {
+      document.getElementById("descricao").value = data.descricao;
+      document.getElementById("quantidade").focus();
+    } else {
+      alert("Código não encontrado na base.");
+      document.getElementById("descricao").value = "";
+    }
+  }
+});
+
+
 async function carregar() {
 const res = await fetch('/api/produtos');
 
