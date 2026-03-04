@@ -33,6 +33,15 @@ const db = new sqlite3.Database("./database.db");
 
 db.serialize(() => {
 
+  // TABELA BASE (importada da planilha)
+db.run(`
+  CREATE TABLE IF NOT EXISTS base_produtos (
+    codigo TEXT PRIMARY KEY,
+    descricao TEXT
+  )
+`);
+  
+  
   // TABELA USUÁRIOS
   db.run(`
     CREATE TABLE IF NOT EXISTS users (
@@ -231,6 +240,21 @@ app.get("/api/exportar", checkAuth, async (req, res) => {
   );
 });
 
+// BUSCAR DESCRIÇÃO PELO CÓDIGO
+app.get("/api/buscar/:codigo", checkAuth, (req, res) => {
+  const codigo = req.params.codigo;
+
+  db.get(
+    "SELECT descricao FROM base_produtos WHERE codigo = ?",
+    [codigo],
+    (err, row) => {
+      if (err) return res.status(500).json({ error: "Erro ao buscar" });
+      if (!row) return res.json({ encontrado: false });
+
+      res.json({ encontrado: true, descricao: row.descricao });
+    }
+  );
+});
 
 // ===============================
 // LOGOUT
