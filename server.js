@@ -272,6 +272,28 @@ app.get("/api/analytics/resumo", checkAuth, (req, res) => {
 // ANALYTICS ÚLTIMOS 7 DIAS
 //////////////////////////////////////////////
 
+app.get("/api/analytics/top10", checkAuth, (req, res) => {
+  db.all(
+    `
+    SELECT 
+      descricao,
+      SUM(quantidade) as total
+    FROM produtos
+    WHERE user_id = ?
+    GROUP BY descricao
+    ORDER BY total DESC
+    LIMIT 10
+    `,
+    [req.session.userId],
+    (err, rows) => {
+      if (err) {
+        return res.status(500).json({ error: "Erro ao buscar top 10" });
+      }
+      res.json(rows);
+    }
+  );
+});
+
 app.get("/api/analytics/7dias", checkAuth, (req, res) => {
   db.all(
     `
