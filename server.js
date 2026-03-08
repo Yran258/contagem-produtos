@@ -1,38 +1,32 @@
-// ===============================
-// IMPORTAÇÕES
-// ===============================
 const express = require("express");
 const sqlite3 = require("sqlite3").verbose();
-const bcrypt = require("bcrypt");
 const session = require("express-session");
+const bcrypt = require("bcrypt");
+const ExcelJS = require("exceljs");
 const path = require("path");
-const ExcelJS = require("exceljs"); // <-- ADICIONADO
 
 const app = express();
 
-// ===============================
-// MIDDLEWARES
-// ===============================
-app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
 app.use(
   session({
-    secret: "segredo_super_secreto",
+    secret: "inventario_secret",
     resave: false,
     saveUninitialized: false,
   })
 );
 
-app.use(express.static("public"));
+app.use(express.static(path.join(__dirname, "public")));
 
-// ===============================
-// BANCO DE DADOS
-// ===============================
 const db = new sqlite3.Database("./database.db");
 
+//////////////////////////////////////////////
+// CRIAÇÃO DAS TABELAS
+//////////////////////////////////////////////
+
 db.serialize(() => {
-  // TABELA BASE (importada da planilha)
   db.run(`
     CREATE TABLE IF NOT EXISTS base_produtos (
       codigo TEXT PRIMARY KEY,
@@ -40,7 +34,6 @@ db.serialize(() => {
     )
   `);
 
-  // TABELA USUÁRIOS
   db.run(`
     CREATE TABLE IF NOT EXISTS users (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -49,56 +42,59 @@ db.serialize(() => {
     )
   `);
 
-  // TABELA PRODUTOS
   db.run(`
     CREATE TABLE IF NOT EXISTS produtos (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       codigo TEXT,
       descricao TEXT,
       quantidade INTEGER,
+      setor TEXT,
       user_id INTEGER,
       created_at TEXT DEFAULT (datetime('now'))
     )
   `);
-}); // ✅ FECHAMENTO QUE ESTAVA FALTANDO
 
-// ===============================
-// PROTEÇÃO
-// ===============================
+  // garante coluna setor
+  db.run(`ALTER TABLE produtos ADD COLUMN setor TEXT`, () => {});
+});
+
+//////////////////////////////////////////////
+// MIDDLEWARE LOGIN
+//////////////////////////////////////////////
+
 function checkAuth(req, res, next) {
   if (!req.session.userId) {
-    return res.status(401).json({ error: "Não autorizado" });
+    return res.redirect("/login.html");
   }
   next();
 }
 
-// ===============================
+//////////////////////////////////////////////
 // CADASTRO
-// ===============================
+//////////////////////////////////////////////
+
 app.post("/register", async (req, res) => {
   const { username, password } = req.body;
 
-  if (!username || !password) {
-    return res.send("Preencha todos os campos");
-  }
-
-  const hashedPassword = await bcrypt.hash(password, 10);
+  const hash = await bcrypt.hash(password, 10);
 
   db.run(
     "INSERT INTO users (username, password) VALUES (?, ?)",
-    [username, hashedPassword],
-    function (err) {
+    [username, hash],
+    (err) => {
       if (err) {
-        return res.send("Usuário já existe");
+        return res.send("Erro ao cadastrar usuário");
       }
+
       res.redirect("/login.html");
     }
   );
 });
 
-// ===============================
+//////////////////////////////////////////////
 // LOGIN
-// ===============================
+//////////////////////////////////////////////
+
 app.post("/login", (req, res) => {
   const { username, password } = req.body;
 
@@ -110,57 +106,67 @@ app.post("/login", (req, res) => {
         return res.send("Usuário não encontrado");
       }
 
-      const valid = await bcrypt.compare(password, user.password);
+      const match = await bcrypt.compare(password, user.password);
 
-      if (!valid) {
+      if (!match) {
         return res.send("Senha incorreta");
       }
 
       req.session.userId = user.id;
+
       res.redirect("/");
     }
   );
 });
 
-// ===============================
-// ROTA PRINCIPAL
-// ===============================
-app.get("/", (req, res) => {
-  if (!req.session.userId) {
-    return res.redirect("/login.html");
-  }
-  res.sendFile(path.join(__dirname, "public", "index.html"));
+//////////////////////////////////////////////
+// LOGOUT
+//////////////////////////////////////////////
+
+app.get("/logout", (req, res) => {
+  req.session.destroy(() => {
+    res.redirect("/login.html");
+  });
 });
 
-// ===============================
-// API PRODUTOS
-// ===============================
+//////////////////////////////////////////////
+// BUSCAR PRODUTO NA BASE
+//////////////////////////////////////////////
 
-// LISTAR
-app.get("/api/produtos", checkAuth, (req, res) => {
-  db.all(
-    "SELECT * FROM produtos WHERE user_id = ?",
-    [req.session.userId],
-    (err, rows) => {
-      if (err) {
-        return res.status(500).json({ error: "Erro ao buscar produtos" });
+app.get("/api/buscar/:codigo", checkAuth, (req, res) => {
+  const codigo = req.params.codigo;
+
+  db.get(
+    "SELECT descricao, setor FROM base_produtos WHERE codigo = ?",
+    [codigo],
+    (err, row) => {
+      if (row) {
+        res.json({
+          encontrado: true,
+          descricao: row.descricao,
+          setor: row.setor || ""
+        });
+      } else {
+        res.json({ encontrado: false });
       }
-      res.json(rows);
     }
   );
 });
 
-// CADASTRAR
+//////////////////////////////////////////////
+// CADASTRAR PRODUTO
+//////////////////////////////////////////////
+
 app.post("/api/produtos", checkAuth, (req, res) => {
-  const { codigo, descricao, quantidade } = req.body;
+  const { codigo, descricao, quantidade, setor } = req.body;
 
   if (!codigo || !descricao || !quantidade) {
     return res.status(400).json({ error: "Preencha todos os campos" });
   }
 
   db.run(
-    "INSERT INTO produtos (codigo, descricao, quantidade, user_id) VALUES (?, ?, ?, ?)",
-    [codigo, descricao, quantidade, req.session.userId],
+    "INSERT INTO produtos (codigo, descricao, quantidade, setor, user_id) VALUES (?, ?, ?, ?, ?)",
+    [codigo, descricao, quantidade, setor, req.session.userId],
     function (err) {
       if (err) {
         return res.status(500).json({ error: "Erro ao cadastrar produto" });
@@ -171,31 +177,44 @@ app.post("/api/produtos", checkAuth, (req, res) => {
         codigo,
         descricao,
         quantidade,
+        setor,
       });
     }
   );
 });
 
-// EXCLUIR
-app.delete("/api/produtos/:id", checkAuth, (req, res) => {
-  const { id } = req.params;
+//////////////////////////////////////////////
+// LISTAR PRODUTOS
+//////////////////////////////////////////////
 
+app.get("/api/produtos", checkAuth, (req, res) => {
+  db.all(
+    "SELECT * FROM produtos WHERE user_id = ? ORDER BY id DESC",
+    [req.session.userId],
+    (err, rows) => {
+      res.json(rows);
+    }
+  );
+});
+
+//////////////////////////////////////////////
+// EXCLUIR PRODUTO
+//////////////////////////////////////////////
+
+app.delete("/api/produtos/:id", checkAuth, (req, res) => {
   db.run(
     "DELETE FROM produtos WHERE id = ? AND user_id = ?",
-    [id, req.session.userId],
-    function (err) {
-      if (err) {
-        return res.status(500).json({ error: "Erro ao excluir" });
-      }
-
+    [req.params.id, req.session.userId],
+    () => {
       res.json({ success: true });
     }
   );
 });
 
-// ===============================
+//////////////////////////////////////////////
 // EXPORTAR EXCEL
-// ===============================
+//////////////////////////////////////////////
+
 app.get("/api/exportar", checkAuth, async (req, res) => {
   const workbook = new ExcelJS.Workbook();
   const sheet = workbook.addWorksheet("Inventario");
@@ -204,22 +223,20 @@ app.get("/api/exportar", checkAuth, async (req, res) => {
     { header: "Código", key: "codigo", width: 20 },
     { header: "Descrição", key: "descricao", width: 40 },
     { header: "Quantidade", key: "quantidade", width: 15 },
+    { header: "Setor", key: "setor", width: 20 },
   ];
 
   db.all(
-    "SELECT codigo, descricao, quantidade FROM produtos WHERE user_id = ?",
+    "SELECT codigo, descricao, quantidade, setor FROM produtos WHERE user_id = ?",
     [req.session.userId],
     async (err, rows) => {
-      if (err) {
-        return res.status(500).json({ error: "Erro ao exportar" });
-      }
-
       rows.forEach((row) => sheet.addRow(row));
 
       res.setHeader(
         "Content-Type",
         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
       );
+
       res.setHeader(
         "Content-Disposition",
         'attachment; filename="inventario.xlsx"'
@@ -231,104 +248,75 @@ app.get("/api/exportar", checkAuth, async (req, res) => {
   );
 });
 
-// ===============================
-// BUSCAR DESCRIÇÃO PELO CÓDIGO (BASE)
-// ===============================
-app.get("/api/buscar/:codigo", checkAuth, (req, res) => {
-  const codigo = req.params.codigo;
+//////////////////////////////////////////////
+// ANALYTICS RESUMO
+//////////////////////////////////////////////
 
-  db.get(
-    "SELECT descricao FROM base_produtos WHERE codigo = ?",
-    [codigo],
-    (err, row) => {
-      if (err) return res.status(500).json({ error: "Erro ao buscar" });
-      if (!row) return res.json({ encontrado: false });
-
-      res.json({ encontrado: true, descricao: row.descricao });
-    }
-  );
-});
-
-// ===============================
-// ANALISE DE DADOS (DASHBOARD)
-// ===============================
-
-// Resumo geral
 app.get("/api/analytics/resumo", checkAuth, (req, res) => {
-  const userId = req.session.userId;
-
   db.get(
     `
     SELECT 
-      COUNT(*) AS total_produtos,
-      COALESCE(SUM(quantidade), 0) AS total_unidades
+      COUNT(DISTINCT codigo) as total_produtos,
+      SUM(quantidade) as total_unidades
     FROM produtos
     WHERE user_id = ?
-    `,
-    [userId],
+  `,
+    [req.session.userId],
     (err, row) => {
-      if (err) return res.status(500).json({ error: "Erro no resumo" });
       res.json(row);
     }
   );
 });
 
-// Top 10 por quantidade
-app.get("/api/analytics/top10", checkAuth, (req, res) => {
-  const userId = req.session.userId;
+//////////////////////////////////////////////
+// ANALYTICS ÚLTIMOS 7 DIAS
+//////////////////////////////////////////////
 
-  db.all(
-    `
-    SELECT codigo, descricao, SUM(quantidade) AS total
-    FROM produtos
-    WHERE user_id = ?
-    GROUP BY codigo, descricao
-    ORDER BY total DESC
-    LIMIT 10
-    `,
-    [userId],
-    (err, rows) => {
-      if (err) return res.status(500).json({ error: "Erro no top10" });
-      res.json(rows);
-    }
-  );
-});
-
-// Últimos 7 dias (quantidade cadastrada por dia)
 app.get("/api/analytics/7dias", checkAuth, (req, res) => {
-  const userId = req.session.userId;
-
   db.all(
     `
     SELECT 
-      date(created_at) AS dia,
-      COALESCE(SUM(quantidade), 0) AS total
+      date(created_at) as dia,
+      SUM(quantidade) as total
     FROM produtos
     WHERE user_id = ?
-      AND created_at >= datetime('now', '-6 days')
     GROUP BY date(created_at)
-    ORDER BY dia ASC
-    `,
-    [userId],
+    ORDER BY date(created_at)
+  `,
+    [req.session.userId],
     (err, rows) => {
-      if (err) return res.status(500).json({ error: "Erro no 7dias" });
       res.json(rows);
     }
   );
 });
 
-// ===============================
-// LOGOUT
-// ===============================
-app.get("/logout", (req, res) => {
-  req.session.destroy(() => {
-    res.redirect("/login.html");
-  });
+//////////////////////////////////////////////
+// ANALYTICS POR SETOR
+//////////////////////////////////////////////
+
+app.get("/api/analytics/setores", checkAuth, (req, res) => {
+  db.all(
+    `
+    SELECT 
+      setor,
+      COUNT(*) as total_produtos,
+      SUM(quantidade) as total_unidades
+    FROM produtos
+    WHERE user_id = ?
+    GROUP BY setor
+    ORDER BY total_unidades DESC
+  `,
+    [req.session.userId],
+    (err, rows) => {
+      res.json(rows);
+    }
+  );
 });
 
-// ===============================
+//////////////////////////////////////////////
 // INICIAR SERVIDOR
-// ===============================
+//////////////////////////////////////////////
+
 const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {

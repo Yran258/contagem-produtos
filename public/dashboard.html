@@ -47,6 +47,13 @@
         <canvas id="grafico7dias"></canvas>
       </div>
     </div>
+
+    <div class="col-md-12">
+      <div class="card shadow-sm p-3">
+        <h5>Quantidade por setor</h5>
+        <canvas id="graficoSetores"></canvas>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -54,12 +61,16 @@
 async function carregarDashboard() {
   // Resumo
   const resumoRes = await fetch("/api/analytics/resumo");
-  if (resumoRes.status === 401) { window.location.href = "/login.html"; return; }
-  const resumo = await resumoRes.json();
-  document.getElementById("totalProdutos").innerText = resumo.total_produtos;
-  document.getElementById("totalUnidades").innerText = resumo.total_unidades;
+  if (resumoRes.status === 401) {
+    window.location.href = "/login.html";
+    return;
+  }
 
-  // Top10
+  const resumo = await resumoRes.json();
+  document.getElementById("totalProdutos").innerText = resumo.total_produtos || 0;
+  document.getElementById("totalUnidades").innerText = resumo.total_unidades || 0;
+
+  // Top 10
   const topRes = await fetch("/api/analytics/top10");
   const top10 = await topRes.json();
 
@@ -67,25 +78,36 @@ async function carregarDashboard() {
     type: "bar",
     data: {
       labels: top10.map(p => p.descricao),
-      datasets: [{ label: "Total", data: top10.map(p => p.total) }]
+      datasets: [{
+        label: "Total",
+        data: top10.map(p => p.total)
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: {
+          display: true
+        }
+      }
     }
   });
 
-  // 7 dias
+  // Últimos 7 dias
   const diasRes = await fetch("/api/analytics/7dias");
   const dias = await diasRes.json();
 
-  // garante 7 dias mesmo se algum dia não tiver dado
   const hoje = new Date();
   const mapa = {};
   dias.forEach(d => mapa[d.dia] = d.total);
 
   const labels = [];
   const valores = [];
+
   for (let i = 6; i >= 0; i--) {
     const dt = new Date(hoje);
     dt.setDate(hoje.getDate() - i);
-    const key = dt.toISOString().slice(0,10);
+    const key = dt.toISOString().slice(0, 10);
     labels.push(key);
     valores.push(mapa[key] || 0);
   }
@@ -94,7 +116,42 @@ async function carregarDashboard() {
     type: "line",
     data: {
       labels,
-      datasets: [{ label: "Unidades", data: valores, tension: 0.3 }]
+      datasets: [{
+        label: "Unidades",
+        data: valores,
+        tension: 0.3
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: {
+          display: true
+        }
+      }
+    }
+  });
+
+  // Quantidade por setor
+  const setoresRes = await fetch("/api/analytics/setores");
+  const setores = await setoresRes.json();
+
+  new Chart(document.getElementById("graficoSetores"), {
+    type: "bar",
+    data: {
+      labels: setores.map(s => s.setor || "Sem setor"),
+      datasets: [{
+        label: "Unidades por setor",
+        data: setores.map(s => s.total_unidades)
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: {
+          display: true
+        }
+      }
     }
   });
 }
