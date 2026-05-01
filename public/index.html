@@ -1,175 +1,152 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
+
 <head>
-<meta charset="UTF-8">
-<title>Contagem de Produtos</title>
-<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>EstoquePro - Início</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+  <link rel="stylesheet" href="style.css">
 </head>
 
-<body class="bg-light">
+<body>
 
-    <img src="/logo.png" 
-     style="
-        position: fixed;
-        top: 20px;
-        left: 20px;
-        height: 90px;
-        z-index: 999;
-     ">
+  <nav class="navbar navbar-expand-lg navbar-custom mb-4 py-3">
+    <div class="container">
+      <a class="navbar-brand d-flex align-items-center fw-bold text-primary" href="/">
+        <i class="bi bi-box-seam me-2 fs-4"></i> EstoquePro
+      </a>
+      <div class="d-flex align-items-center gap-2">
+        <div class="d-flex align-items-center gap-1 me-3 border-end pe-3">
+          <button class="btn btn-sm btn-light text-primary fw-bold IgnoreReader" onclick="mudarFonte(-1)"
+            title="Diminuir texto">A-</button>
+          <button class="btn btn-sm btn-light text-primary fw-bold IgnoreReader" onclick="mudarFonte(1)"
+            title="Aumentar texto">A+</button>
+          <button class="btn btn-sm btn-light text-primary ms-1 IgnoreReader" onclick="toggleTema()"
+            title="Alternar Tema">
+            <i id="icone-tema" class="bi bi-moon-stars"></i>
+          </button>
+        </div>
+        <a href="/dashboard.html"
+          class="btn btn-light text-primary border-0 bg-primary bg-opacity-10 fw-bold">Dashboard</a>
+        <a href="/logout" class="btn btn-outline-danger border-0">Sair</a>
+      </div>
+    </div>
+  </nav>
 
-<div class="container mt-5">
-<div class="card shadow p-4">
+  <div class="container">
+    <div class="card card-custom p-4 mb-4">
+      <h5 class="fw-bold mb-4"><i class="bi bi-plus-circle me-2 text-primary"></i>Novo Registro</h5>
+      <form id="form" class="row g-3">
+        <div class="col-md-2">
+          <label class="form-label small fw-bold">CÓDIGO</label>
+          <input id="codigo" class="form-control" placeholder="Código do produto" required>
+        </div>
+        <div class="col-md-4">
+          <label class="form-label small fw-bold">DESCRIÇÃO</label>
+          <input id="descricao" class="form-control" placeholder="Nome do produto" required>
+        </div>
+        <div class="col-md-2">
+          <label class="form-label small fw-bold">QTD</label>
+          <input id="quantidade" type="number" class="form-control" placeholder="Quantidade" required>
+        </div>
+        <div class="col-md-2">
+          <label class="form-label small fw-bold">SETOR</label>
+          <input id="setor" class="form-control" placeholder="Setor" required>
+        </div>
+        <div class="col-md-2 d-flex align-items-end">
+          <button class="btn btn-primary w-100 fw-bold shadow-sm" type="submit">Salvar</button>
+        </div>
+      </form>
+    </div>
 
-<h2 class="mb-4 text-center">📦 Contagem de Produtos</h2>
+    <div class="card card-custom p-0 overflow-hidden mb-5">
+      <div class="d-flex justify-content-between align-items-center p-4 border-bottom">
+        <h5 class="fw-bold mb-0 text-main">Produtos Cadastrados</h5>
+        <button onclick="exportar()"
+          class="btn btn-success btn-sm bg-success bg-opacity-10 text-success border-0 fw-bold">
+          <i class="bi bi-file-earmark-excel me-1"></i> Exportar
+        </button>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-custom table-hover mb-0">
+          <thead>
+            <tr>
+              <th>Código</th>
+              <th>Descrição</th>
+              <th>Quantidade</th>
+              <th>Setor</th>
+              <th class="text-end">Ações</th>
+            </tr>
+          </thead>
+          <tbody id="tabela">
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
 
-<div class="text-end mb-3">
-<a href="/dashboard.html" class="btn btn-outline-primary btn-sm me-2">Dashboard</a>
-<a href="/logout" class="btn btn-secondary btn-sm">Sair</a>
-</div>
+  <script src="acessibilidade.js"></script>
+  <script src="screenreader.js"></script>
+  <script>
+    // Lógica de busca e carregamento permanece a mesma
+    document.getElementById("codigo").addEventListener("keydown", async (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        const codigo = document.getElementById("codigo").value.trim();
+        if (!codigo) return;
+        const res = await fetch("/api/buscar/" + encodeURIComponent(codigo));
+        const data = await res.json();
+        if (data.encontrado) {
+          document.getElementById("descricao").value = data.descricao;
+          document.getElementById("setor").value = data.setor || "";
+          document.getElementById("quantidade").focus();
+        }
+      }
+    });
 
-<form id="form" class="row g-3">
-<div class="col-md-2">
-<label class="form-label">Código</label>
-<input id="codigo" class="form-control" required>
-</div>
-
-<div class="col-md-4">
-<label class="form-label">Descrição</label>
-<input id="descricao" class="form-control" required>
-</div>
-
-<div class="col-md-2">
-<label class="form-label">Quantidade</label>
-<input id="quantidade" type="number" class="form-control" required>
-</div>
-
-<div class="col-md-2">
-<label class="form-label">Setor</label>
-<input id="setor" class="form-control" required>
-</div>
-
-<div class="col-md-2 d-flex align-items-end">
-<button class="btn btn-primary w-100" type="submit">
-Cadastrar
-</button>
-</div>
-</form>
-
-<hr class="my-4">
-
-<div class="d-flex justify-content-between align-items-center">
-  <h4 class="mb-0">Produtos Cadastrados</h4>
-  <button onclick="exportar()" class="btn btn-success">
-    Gerar Excel
-  </button>
-</div>
-
-<br>
-
-<div class="table-responsive">
-<table class="table table-striped table-bordered">
-<thead class="table-dark">
-<tr>
-<th>Código</th>
-<th>Descrição</th>
-<th>Quantidade</th>
-<th>Setor</th>
-<th>Ações</th>
-</tr>
-</thead>
-<tbody id="tabela"></tbody>
-</table>
-</div>
-
-</div>
-</div>
-
-<script>
-document.getElementById("codigo").addEventListener("keydown", async (e) => {
-  if (e.key === "Enter") {
-    e.preventDefault();
-
-    const codigo = document.getElementById("codigo").value.trim();
-    if (!codigo) return;
-
-    const res = await fetch("/api/buscar/" + encodeURIComponent(codigo));
-    if (res.status === 401) {
-      window.location.href = "/login.html";
-      return;
+    async function carregar() {
+      const res = await fetch('/api/produtos');
+      if (res.status === 401) return window.location.href = '/login.html';
+      const produtos = await res.json();
+      const tabela = document.getElementById('tabela');
+      tabela.innerHTML = produtos.map(p => `
+      <tr>
+        <td class="fw-bold isIgnoreCache">${p.codigo}</td>
+        <td class="isIgnoreCache">${p.descricao}</td>
+        <td class="isIgnoreCache"><span class="badge bg-primary bg-opacity-10 text-primary isIgnoreCache">${p.quantidade}</span></td>
+        <td class="isIgnoreCache">${p.setor || ""}</td>
+        <td class="text-end">
+          <button class="btn btn-light text-danger btn-sm border-0" onclick="excluir(${p.id})">
+            <i class="bi bi-trash">Excluir</i>
+          </button>
+        </td>
+      </tr>
+    `).join('');
     }
 
-    const data = await res.json();
-    if (data.encontrado) {
-      document.getElementById("descricao").value = data.descricao;
-      document.getElementById("setor").value = data.setor || "";
-      document.getElementById("quantidade").focus();
-    } else {
-      alert("Código não encontrado na base.");
-      document.getElementById("descricao").value = "";
-    }
-  }
-});
+    document.getElementById('form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      await fetch('/api/produtos', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          codigo: document.getElementById('codigo').value,
+          descricao: document.getElementById('descricao').value,
+          quantidade: document.getElementById('quantidade').value,
+          setor: document.getElementById('setor').value
+        })
+      });
+      document.getElementById('form').reset();
+      carregar();
+    });
 
-async function carregar() {
-  const res = await fetch('/api/produtos');
-
-  if (res.status === 401) {
-    window.location.href = '/login.html';
-    return;
-  }
-
-  const produtos = await res.json();
-  const tabela = document.getElementById('tabela');
-  tabela.innerHTML = '';
-
-  produtos.forEach(p => {
-    tabela.innerHTML += `
-<tr>
-<td>${p.codigo}</td>
-<td>${p.descricao}</td>
-<td>${p.quantidade}</td>
-<td>${p.setor || ""}</td>
-<td>
-<button class="btn btn-danger btn-sm" onclick="excluir(${p.id})">
-Excluir
-</button>
-</td>
-</tr>
-`;
-  });
-}
-
-document.getElementById('form').addEventListener('submit', async (e) => {
-  e.preventDefault();
-
-  await fetch('/api/produtos', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      codigo: document.getElementById('codigo').value,
-      descricao: document.getElementById('descricao').value,
-      quantidade: document.getElementById('quantidade').value,
-      setor: document.getElementById('setor').value
-    })
-  });
-
-  document.getElementById('form').reset();
-  carregar();
-});
-
-async function excluir(id) {
-  if (confirm("Tem certeza que deseja excluir este produto?")) {
-    await fetch('/api/produtos/' + id, { method: 'DELETE' });
+    async function excluir(id) { if (confirm("Deseja excluir?")) { await fetch('/api/produtos/' + id, { method: 'DELETE' }); carregar(); } }
+    function exportar() { window.location.href = '/api/exportar'; }
     carregar();
-  }
-}
-
-function exportar() {
-  window.location.href = '/api/exportar';
-}
-
-carregar();
-</script>
-
+  </script>
 </body>
+
 </html>

@@ -1,0 +1,216 @@
+/* =========================================
+   1. Variáveis Globais e Temas
+   ========================================= */
+:root {
+  /* Acessibilidade - Tamanho de fonte raiz */
+  --base-font-size: 16px;
+  
+  /* Cores de Marca (Fixas) */
+  --primary: #0d6efd;
+  --success: #198754;
+  --danger: #dc3545;
+
+  /* Tema Claro (Padrão) */
+  --bg-color: #f4f7fe;
+  --text-main: #2b3648;
+  --text-muted: #64748b;
+  --card-bg: #ffffff;
+  --input-bg: #f8fafc;
+  --border-color: #e2e8f0;
+  --navbar-bg: #ffffff;
+  --table-hover: #f8fafc;
+}
+
+/* Tema Escuro - Ativado via JS (data-theme="dark") */
+[data-theme="dark"] {
+  --bg-color: #0f172a;
+  --text-main: #f1f5f9;
+  --text-muted: #94a3b8;
+  --card-bg: #1e293b;
+  --input-bg: #0f172a;
+  --border-color: #334155;
+  --navbar-bg: #1e293b;
+  --table-hover: #2d3748;
+}
+
+/* =========================================
+   2. Configurações de Base
+   ========================================= */
+html {
+  /* Importante para a acessibilidade: tudo escala com o var() */
+  font-size: var(--base-font-size) !important;
+  transition: font-size 0.2s ease, background-color 0.3s ease;
+}
+
+body {
+  font-family: 'Inter', sans-serif;
+  background-color: var(--bg-color);
+  color: var(--text-main);
+  margin: 0;
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* =========================================
+   3. Navegação e Layout
+   ========================================= */
+.navbar-custom {
+  background-color: var(--navbar-bg);
+  box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.card-custom, .card-auth {
+  border: none;
+  border-radius: 16px;
+  background-color: var(--card-bg);
+  box-shadow: 0 4px 20px rgba(0,0,0,0.04);
+  transition: transform 0.2s ease, background-color 0.3s ease;
+}
+
+/* =========================================
+   4. Autenticação (Login e Registo) - CORRIGIDO
+   ========================================= */
+.auth-page {
+  min-height: 100vh; /* min-height é melhor que height fixo */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem; /* Garante que o card não cola nos bordos do telemóvel */
+}
+
+.card-auth {
+  width: 100%;
+  max-width: 480px; /* Aumentado de 400px para 480px */
+  border: none;
+  border-radius: 20px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+  background: var(--card-bg);
+  padding: 3rem; /* Espaçamento interno mais generoso */
+  transition: background-color 0.3s ease, transform 0.2s ease;
+}
+
+.brand-logo {
+  font-size: 2.2rem;
+  font-weight: 700;
+  text-decoration: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 2.5rem;
+}
+
+/* Espaçamento extra entre os campos do formulário */
+.card-auth .mb-3, .card-auth .mb-4 {
+  margin-bottom: 1.5rem !important;
+}
+
+.btn-auth {
+  padding: 0.8rem;
+  font-size: 1.1rem;
+}
+
+/* =========================================
+   5. Tabelas Modernas
+   ========================================= */
+.table-custom {
+  color: var(--text-main);
+}
+
+.table-custom thead th {
+  background-color: var(--input-bg);
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border-color);
+  font-weight: 600;
+  text-transform: uppercase;
+  font-size: 0.75rem;
+  letter-spacing: 0.5px;
+  padding: 1rem;
+}
+
+.table-custom tbody td {
+  background-color: var(--card-bg);
+  color: var(--text-main);
+  border-bottom: 1px solid var(--border-color);
+  padding: 1rem;
+  vertical-align: middle;
+}
+
+.table-custom tbody tr:hover td {
+  background-color: var(--table-hover);
+}
+
+/* =========================================
+   6. Autenticação (Login/Registo)
+   ========================================= */
+.auth-page {
+  height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.brand-logo {
+  font-size: 2rem;
+  font-weight: 700;
+  text-decoration: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 1.5rem;
+}
+
+/* =========================================
+   7. Dashboard e Gráficos
+   ========================================= */
+.kpi-card { 
+  position: relative; 
+  overflow: hidden; 
+  color: white !important; 
+}
+
+.kpi-icon {
+  position: absolute; 
+  right: -10px; 
+  bottom: -20px;
+  font-size: 6rem; 
+  opacity: 0.2;
+}
+
+.grafico-box { 
+  position: relative; 
+  height: 300px; 
+  width: 100%; 
+  border-radius: 12px;
+}
+
+/* Utilitários */
+.text-muted { color: var(--text-muted) !important; }
+hr { border-color: var(--border-color); opacity: 0.2; }
+
+
+/* =========================================
+   8. Ajustes Finos (Títulos e Placeholders)
+   ========================================= */
+
+/* 1. Força todos os títulos a seguirem a cor do tema, 
+      EXCETO os que já são propositalmente brancos (como nos cards azuis/verdes) */
+h1:not(.text-white), 
+h2:not(.text-white), 
+h3:not(.text-white), 
+h4:not(.text-white), 
+h5:not(.text-white), 
+h6:not(.text-white) {
+  color: var(--text-main);
+  transition: color 0.3s ease;
+}
+
+/* 2. Muda a cor do texto de dica dentro dos inputs (placeholder) */
+.form-control::placeholder {
+  color: var(--text-muted) !important;
+  opacity: 0.6; /* Deixa o texto levemente transparente para parecer uma dica */
+}
+
+/* 3. Garante que os ícones soltos também respeitem a cor principal */
+i:not(.text-white):not(.text-primary):not(.text-success):not(.text-danger) {
+  color: inherit;
+}
